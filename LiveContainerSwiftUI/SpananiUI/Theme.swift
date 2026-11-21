@@ -126,7 +126,7 @@ public enum SpananiLogo {
            let uiImage = UIImage(data: data) {
             return Image(uiImage: uiImage).renderingMode(.template)
         }
-        return Image("Mark", bundle: .module).renderingMode(.template)
+        return Image("Mark", bundle: SpananiBundle.bundle).renderingMode(.template)
     }
 }
 
