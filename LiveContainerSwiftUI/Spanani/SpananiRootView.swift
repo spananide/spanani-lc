@@ -17,6 +17,11 @@ struct SpananiRootView: View {
 
             SpananiRoot(model: SpananiLCBridge.shared.model)
         }
+        .task {
+            if let msg = SpananiEngine.importInstallerCertificateIfPending() {
+                SpananiAlert.shared.message = msg
+            }
+        }
         .onReceive(SpananiAlert.shared.$message.compactMap { $0 }) { msg in
             SpananiLCBridge.shared.model.lastError = msg
             SpananiAlert.shared.message = nil

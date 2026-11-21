@@ -176,6 +176,44 @@ enum SpananiEngine {
         return nil
     }
 
+    /// Imports the certificate the installer left for us: password(s) in Documents/spanani-cert.txt, p12 inside the embedded store framework.
+    /// Returns nil when nothing was pending or the import worked, otherwise a short error text.
+    @discardableResult
+    static func importInstallerCertificateIfPending() -> String? {
+        let txt = LCPath.docPath.appendingPathComponent("spanani-cert.txt")
+        guard FileManager.default.fileExists(atPath: txt.path) else {
+            return nil
+        }
+
+        defer {
+            try? FileManager.default.removeItem(at: txt)
+        }
+
+        let contents = (try? String(contentsOf: txt, encoding: .utf8)) ?? ""
+        let passwords = contents
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let p12URL = Bundle.main.bundleURL.appendingPathComponent("Frameworks/SideStoreApp.framework/ALTCertificate.p12")
+        guard FileManager.default.fileExists(atPath: p12URL.path),
+              let data = try? Data(contentsOf: p12URL) else {
+            return "The installer did not include a certificate. Import one in Advanced > LiveContainer settings."
+        }
+
+        for pw in passwords {
+            if LCUtils.getCertTeamId(withKeyData: data, password: pw) != nil {
+                LCUtils.appGroupUserDefault.set(data, forKey: "LCCertificateData")
+                LCUtils.appGroupUserDefault.set(pw, forKey: "LCCertificatePassword")
+                LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
+                UserDefaults.standard.set(LCSharedUtils.appGroupID(), forKey: "LCAppGroupID")
+                return nil
+            }
+        }
+
+        return "The certificate from the installer could not be opened. Import one in Advanced > LiveContainer settings."
+    }
+
     static func removeCertificate() {
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateData")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificatePassword")
