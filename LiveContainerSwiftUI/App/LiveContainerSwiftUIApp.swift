@@ -113,7 +113,7 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
     
     var body: some Scene {
         WindowGroup(id: "Main") {
-            LCTabView()
+            SpananiRootView()
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .environmentObject(DataManager.shared.model)
                 .environmentObject(LCAppSortManager.shared)
