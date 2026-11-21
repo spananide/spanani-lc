@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 public struct StoreItem: Identifiable, Hashable {
     public let id: String
@@ -78,6 +79,7 @@ public struct InstalledItem: Identifiable, Hashable {
     public var isActive: Bool
     public var hasUpdate: Bool
     public var latestVersion: String?
+    public var iconImage: UIImage?
 
     public init(
         id: String,
@@ -89,7 +91,8 @@ public struct InstalledItem: Identifiable, Hashable {
         expiresAt: Date,
         isActive: Bool = true,
         hasUpdate: Bool = false,
-        latestVersion: String? = nil
+        latestVersion: String? = nil,
+        iconImage: UIImage? = nil
     ) {
         self.id = id
         self.name = name
@@ -101,6 +104,7 @@ public struct InstalledItem: Identifiable, Hashable {
         self.isActive = isActive
         self.hasUpdate = hasUpdate
         self.latestVersion = latestVersion
+        self.iconImage = iconImage
     }
 
     public static func == (lhs: InstalledItem, rhs: InstalledItem) -> Bool {

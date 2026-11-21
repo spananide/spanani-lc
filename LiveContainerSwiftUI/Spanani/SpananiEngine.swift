@@ -21,6 +21,13 @@ enum SpananiEngine {
         DataManager.shared.model
     }
 
+    static func app(forBundleID id: String) -> LCAppModel? {
+        if let found = model.apps.first(where: { $0.appInfo.bundleIdentifier() == id }) {
+            return found
+        }
+        return model.hiddenApps.first(where: { $0.appInfo.bundleIdentifier() == id })
+    }
+
     static func install(urlString: String) {
         let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {

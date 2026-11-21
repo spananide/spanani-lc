@@ -104,6 +104,7 @@ struct SpAppIconView: View {
     let tint: Color
     let symbol: String
     var iconURL: URL? = nil
+    var image: UIImage? = nil
     var size: CGFloat = 62
 
     private var cornerRadius: CGFloat {
@@ -120,7 +121,11 @@ struct SpAppIconView: View {
             }
 
             Group {
-                if let iconURL = iconURL {
+                if let image = image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } else if let iconURL = iconURL {
                     AsyncImage(url: iconURL) { phase in
                         if let image = phase.image {
                             image
