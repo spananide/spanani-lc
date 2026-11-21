@@ -41,7 +41,8 @@ mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
 
 # download SideStore
 cd tmp
-wget https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa
+# spanani: our own store build is the embedded engine (internal pre-release of spananide/spanani-store)
+curl -fsSL -o SideStore.ipa https://github.com/spananide/spanani-store/releases/download/lc-engine/SpananiStore.ipa
 unzip SideStore.ipa
 cd ..
 
@@ -52,6 +53,8 @@ rm ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore
 mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore.dylib ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore
 ldid -S"" ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/SideStore
 cp ./.github/sidelc/LCAppInfo.plist ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/
+# the sideloader only gives the embedded store an app group + certificate when the framework carries SideStore's bundle id
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.SideStore.SideStore" ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/Info.plist
 
 # copy intents
 cp ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/Intents.intentdefinition ./Payload/LiveContainer.app/

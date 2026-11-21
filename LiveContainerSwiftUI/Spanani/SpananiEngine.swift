@@ -6,6 +6,7 @@
 import Foundation
 import UIKit
 import Combine
+import Security
 
 final class SpananiAlert: ObservableObject {
     static let shared = SpananiAlert()
@@ -101,5 +102,84 @@ enum SpananiEngine {
 
     static func icon(for app: LCAppModel) -> UIImage? {
         app.appInfo.iconIsDarkIcon(false)
+    }
+
+    static var hasCertificate: Bool {
+        LCUtils.appGroupUserDefault.data(forKey: "LCCertificateData") != nil
+    }
+
+    static var certificateDate: Date? {
+        LCUtils.appGroupUserDefault.object(forKey: "LCCertificateUpdateDate") as? Date
+    }
+
+    static var storeEngineAvailable: Bool {
+        UserDefaults.sideStoreExist()
+    }
+
+    static func openStoreEngine() {
+        LCUtils.openSideStore()
+    }
+
+    static func importCertificateFromStoreEngine() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "signingCertificate",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecAttrService as String: "com.kdt.livecontainer",
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+        ]
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+
+        guard status == errSecSuccess else {
+            if status == errSecItemNotFound {
+                return "No certificate found. Open the store engine, sign in with your Apple ID, then try again."
+            } else {
+                return "Keychain read error: \(status)"
+            }
+        }
+
+        guard let data = item as? Data else {
+            return "The certificate in the keychain is not valid."
+        }
+
+        let passwordQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "signingCertificatePassword",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecAttrService as String: "com.kdt.livecontainer",
+            kSecAttrSynchronizable as String: kSecAttrSynchronizableAny
+        ]
+
+        var passwordItem: CFTypeRef?
+        let passwordStatus = SecItemCopyMatching(passwordQuery as CFDictionary, &passwordItem)
+        var password = ""
+        if passwordStatus == errSecSuccess,
+           let passwordData = passwordItem as? Data,
+           let pwd = String(data: passwordData, encoding: .utf8) {
+            password = pwd
+        }
+
+        guard LCUtils.getCertTeamId(withKeyData: data, password: password) != nil else {
+            return "The certificate in the keychain is not valid."
+        }
+
+        LCUtils.appGroupUserDefault.set(data, forKey: "LCCertificateData")
+        LCUtils.appGroupUserDefault.set(password, forKey: "LCCertificatePassword")
+        LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
+
+        UserDefaults.standard.set(LCSharedUtils.appGroupID(), forKey: "LCAppGroupID")
+
+        return nil
+    }
+
+    static func removeCertificate() {
+        LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateData")
+        LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificatePassword")
+        LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateUpdateDate")
+        UserDefaults.standard.set(nil, forKey: "LCAppGroupID")
     }
 }

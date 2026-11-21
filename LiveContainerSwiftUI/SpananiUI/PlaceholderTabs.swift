@@ -283,31 +283,49 @@ struct AddSourceSheet: View {
 // MARK: - SettingsView
 
 struct SettingsView: View {
-    @EnvironmentObject private var model: StoreModel
-    @State private var isConfirmSignOutPresented = false
+    @State private var refreshTick = 0
+    @State private var isConfirmRemoveCertPresented = false
+    @State private var isLCSettingsPresented = false
+    @State private var isTweaksPresented = false
 
     var body: some View {
+        let _ = refreshTick
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: 24) {
                 headerSection
-                accountSection
-                refreshingSection
-                connectionSection
+                signingSection
+                    .id(refreshTick)
+                engineSection
+                advancedSection
                 aboutSection
             }
             .padding(.top, 16)
             .padding(.bottom, 140)
         }
         .background(Color.paper)
+        .onAppear {
+            refreshTick += 1
+        }
         .confirmationDialog(
-            "Sign out of Apple ID?",
-            isPresented: $isConfirmSignOutPresented,
+            "Remove the signing certificate?",
+            isPresented: $isConfirmRemoveCertPresented,
             titleVisibility: .visible
         ) {
-            Button("Sign out", role: .destructive) {
-                model.signOut()
+            Button("Remove", role: .destructive) {
+                SpananiEngine.removeCertificate()
+                refreshTick += 1
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: $isLCSettingsPresented) {
+            LCSettingsView()
+                .environmentObject(DataManager.shared.model)
+                .environmentObject(LCAppSortManager.shared)
+        }
+        .sheet(isPresented: $isTweaksPresented) {
+            LCTweaksView()
+                .environmentObject(DataManager.shared.model)
+                .environmentObject(LCAppSortManager.shared)
         }
     }
 
@@ -320,51 +338,95 @@ struct SettingsView: View {
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Account Section
+    // MARK: - Signing Section
 
-    private var accountSection: some View {
+    private var signingSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Apple ID")
+            Text("Signing certificate")
                 .font(.brand(16, .semibold))
                 .foregroundColor(.inkSoft)
                 .padding(.horizontal, 20)
 
             VStack(spacing: 0) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Apple ID")
-                            .font(.system(size: 13))
-                            .foregroundColor(.inkFaint)
-
-                        Text(model.account.appleID ?? "Not signed in")
-                            .font(.brand(16, .semibold))
-                            .foregroundColor(.ink)
-                    }
+                    Text("Certificate")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.ink)
 
                     Spacer()
 
                     statusPill(
-                        text: model.account.appleID != nil ? "Signed in" : "Not signed in",
-                        color: model.account.appleID != nil ? .success : .warning
+                        text: SpananiEngine.hasCertificate ? "Imported" : "Not imported",
+                        color: SpananiEngine.hasCertificate ? .success : .warning
                     )
                 }
                 .padding(16)
 
-                if model.account.appleID != nil {
+                if let date = SpananiEngine.certificateDate {
+                    Rectangle()
+                        .fill(Color.paperSunk)
+                        .frame(height: 1)
+                        .padding(.horizontal, 16)
+
+                    HStack {
+                        Text("Updated")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.ink)
+
+                        Spacer()
+
+                        Text(shortDateString(from: date))
+                            .font(.brand(14, .semibold))
+                            .foregroundColor(.inkSoft)
+                    }
+                    .padding(16)
+                }
+
+                Rectangle()
+                    .fill(Color.paperSunk)
+                    .frame(height: 1)
+                    .padding(.horizontal, 16)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Apps run with your own signing certificate. Sign in once in the store engine, then import the certificate here.")
+                        .font(.system(size: 13))
+                        .foregroundColor(.inkSoft)
+
+                    Button {
+                        if let msg = SpananiEngine.importCertificateFromStoreEngine() {
+                            SpananiAlert.shared.message = msg
+                        }
+                        refreshTick += 1
+                    } label: {
+                        Text("Import from store engine")
+                            .font(.brand(15, .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color.brand)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!SpananiEngine.storeEngineAvailable)
+                    .opacity(SpananiEngine.storeEngineAvailable ? 1.0 : 0.45)
+                }
+                .padding(16)
+
+                if SpananiEngine.hasCertificate {
                     Rectangle()
                         .fill(Color.paperSunk)
                         .frame(height: 1)
                         .padding(.horizontal, 16)
 
                     Button {
-                        isConfirmSignOutPresented = true
+                        isConfirmRemoveCertPresented = true
                     } label: {
                         HStack {
-                            Text("Sign out")
+                            Text("Remove certificate")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(.danger)
                             Spacer()
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                            Image(systemName: "trash")
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundColor(.danger)
                         }
@@ -383,55 +445,36 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Refreshing Section
+    // MARK: - Store Engine Section
 
-    private var refreshingSection: some View {
+    private var engineSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Refreshing")
+            Text("Store engine")
                 .font(.brand(16, .semibold))
                 .foregroundColor(.inkSoft)
                 .padding(.horizontal, 20)
 
-            VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle(isOn: Binding(
-                        get: { model.autoRefreshEnabled },
-                        set: { model.setAutoRefresh($0) }
-                    )) {
-                        Text("Refresh automatically")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.ink)
-                    }
-                    .tint(.brand)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("The built-in store signs you in with your Apple ID and keeps the certificate fresh. Use the back button in its top-left corner to return here.")
+                    .font(.system(size: 13))
+                    .foregroundColor(.inkSoft)
 
-                    Text("Refreshes apps in the background before they expire. iOS decides when it runs, so open the store now and then.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.inkSoft)
+                Button {
+                    SpananiEngine.openStoreEngine()
+                } label: {
+                    Text("Open store engine")
+                        .font(.brand(15, .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(Color.brand)
+                        .clipShape(Capsule())
                 }
-                .padding(16)
-
-                Rectangle()
-                    .fill(Color.paperSunk)
-                    .frame(height: 1)
-                    .padding(.horizontal, 16)
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Toggle(isOn: Binding(
-                        get: { model.remindersEnabled },
-                        set: { model.setReminders($0) }
-                    )) {
-                        Text("Expiry reminders")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.ink)
-                    }
-                    .tint(.brand)
-
-                    Text("A notification 24 hours before an app expires.")
-                        .font(.system(size: 13))
-                        .foregroundColor(.inkSoft)
-                }
-                .padding(16)
+                .buttonStyle(.plain)
+                .disabled(!SpananiEngine.storeEngineAvailable)
+                .opacity(SpananiEngine.storeEngineAvailable ? 1.0 : 0.45)
             }
+            .padding(16)
             .background(Color.paperRaised)
             .clipShape(RoundedRectangle(cornerRadius: SpananiRadius.tile, style: .continuous))
             .overlay(
@@ -442,64 +485,62 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Connection Section
+    // MARK: - Advanced Section
 
-    private var connectionSection: some View {
+    private var advancedSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Connection")
+            Text("Advanced")
                 .font(.brand(16, .semibold))
                 .foregroundColor(.inkSoft)
                 .padding(.horizontal, 20)
 
             VStack(spacing: 0) {
-                HStack {
-                    Text("Pairing file")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.ink)
+                Button {
+                    isLCSettingsPresented = true
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("LiveContainer settings")
+                                .font(.brand(16, .semibold))
+                                .foregroundColor(.ink)
 
-                    Spacer()
+                            Text("Containers, JIT-less diagnose, multitasking")
+                                .font(.system(size: 13))
+                                .foregroundColor(.inkSoft)
+                        }
 
-                    Text(model.account.isPaired ? "Loaded" : "Missing")
-                        .font(.brand(14, .semibold))
-                        .foregroundColor(model.account.isPaired ? .success : .danger)
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.inkFaint)
+                    }
+                    .padding(16)
                 }
-                .padding(16)
+                .buttonStyle(.plain)
 
                 Rectangle()
                     .fill(Color.paperSunk)
                     .frame(height: 1)
                     .padding(.horizontal, 16)
 
-                HStack {
-                    Text("VPN loopback")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.ink)
+                Button {
+                    isTweaksPresented = true
+                } label: {
+                    HStack {
+                        Text("Tweaks")
+                            .font(.brand(16, .semibold))
+                            .foregroundColor(.ink)
 
-                    Spacer()
+                        Spacer()
 
-                    Text(model.account.vpnOn ? "Active" : "Inactive")
-                        .font(.brand(14, .semibold))
-                        .foregroundColor(model.account.vpnOn ? .success : .warning)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.inkFaint)
+                    }
+                    .padding(16)
                 }
-                .padding(16)
-
-                Rectangle()
-                    .fill(Color.paperSunk)
-                    .frame(height: 1)
-                    .padding(.horizontal, 16)
-
-                HStack {
-                    Text("Widgets")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.ink)
-
-                    Spacer()
-
-                    Text(model.account.widgetsReady ? "Ready" : "Needs app group")
-                        .font(.brand(14, .semibold))
-                        .foregroundColor(model.account.widgetsReady ? .success : .warning)
-                }
-                .padding(16)
+                .buttonStyle(.plain)
             }
             .background(Color.paperRaised)
             .clipShape(RoundedRectangle(cornerRadius: SpananiRadius.tile, style: .continuous))
@@ -565,6 +606,13 @@ struct SettingsView: View {
             )
             .padding(.horizontal, 20)
         }
+    }
+
+    private func shortDateString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
     }
 
     private func statusPill(text: String, color: Color) -> some View {
