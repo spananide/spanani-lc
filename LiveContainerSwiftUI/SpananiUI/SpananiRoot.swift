@@ -31,10 +31,9 @@ public struct SpananiRoot: View {
             Color.paper
                 .ignoresSafeArea()
 
-            GeometryReader { geo in
-                tabContent
-                    .padding(.top, missingTopInset(geo.safeAreaInsets.top))
-            }
+            // LC hosts this as a normal root view (full safe area), so no GeometryReader; .id forces a fresh tab view per selection
+            tabContent
+                .id(selectedTab)
 
             VStack {
                 Spacer()
