@@ -1,5 +1,6 @@
 # copy lc
-wget https://github.com/LiveContainer/dylibify/releases/download/1.0/dylibify
+curl -fsSL -o dylibify https://github.com/spananide/spanani-store/releases/download/deps/dylibify
+echo "6d23f6a2fc4d8442f87caa1161aebe6ecaafd0e8c41ce205da007efb04fc82c7  dylibify" | shasum -a 256 -c - || exit 1
 chmod +x dylibify
 brew install ldid
 
