@@ -4,6 +4,11 @@
    
 
 <div align="center">
+  <img src="./screenshots/spanani-showcase.png" alt="spanani Store on iPhone: Discover, My Apps, app detail and Settings" width="100%">
+  <p><b>spanani Store</b> is this LiveContainer fork with our own interface. One app slot, any number of apps inside it. Below is the original LiveContainer README.</p>
+</div>
+
+<div align="center">
   <h1><b>LiveContainer</b></h1>
   <p><i>An app launcher that runs iOS apps without actually installing them! </i></p>
 </div>
