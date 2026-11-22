@@ -143,7 +143,7 @@ struct SpAppIconView: View {
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.paperSunk, lineWidth: 1.5)
+                    .stroke(Color.paperSunk, lineWidth: image == nil ? 1.5 : 0) // LC icons already carry their own edge
             )
         }
         .frame(width: size, height: size)

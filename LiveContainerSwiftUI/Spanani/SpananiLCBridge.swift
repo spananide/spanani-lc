@@ -166,6 +166,8 @@ final class SpananiLCBridge: StoreActions {
                 ))
 
                 for app in parsedSource.apps {
+                    // this app already is the store: the standalone spanani Store makes no sense inside it
+                    if app.bundleIdentifier == "de.spanani.store" { continue }
                     let appTint = Self.parseColor(app.tintColor)
 
                     // Collect changelog entries
