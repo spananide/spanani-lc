@@ -7,6 +7,7 @@ import Foundation
 import UIKit
 import Combine
 import Security
+import UserNotifications
 
 final class SpananiAlert: ObservableObject {
     static let shared = SpananiAlert()
@@ -219,5 +220,80 @@ enum SpananiEngine {
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificatePassword")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateUpdateDate")
         UserDefaults.standard.set(nil, forKey: "LCAppGroupID")
+    }
+
+    static var appExpiryDate: Date? {
+        guard let path = Bundle.main.path(forResource: "embedded", ofType: "mobileprovision"),
+              let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else {
+            return nil
+        }
+        guard let startRange = data.range(of: Data("<?xml".utf8)),
+              let endRange = data.range(of: Data("</plist>".utf8)),
+              startRange.lowerBound < endRange.upperBound else {
+            return nil
+        }
+        let plistData = data.subdata(in: startRange.lowerBound..<endRange.upperBound)
+        guard let dict = (try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)) as? [String: Any] else {
+            return nil
+        }
+        return dict["ExpirationDate"] as? Date
+    }
+
+    static let expiryReminderKey = "spanani.expiryReminder"
+
+    static var expiryReminderEnabled: Bool {
+        UserDefaults.standard.object(forKey: expiryReminderKey) as? Bool ?? true
+    }
+
+    static func daysUntilExpiry() -> Int? {
+        guard let expiry = appExpiryDate else { return nil }
+        return Calendar.current.dateComponents([.day], from: Date(), to: expiry).day
+    }
+
+    static func updateExpiryReminder() {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["spanani.expiry.1d", "spanani.expiry.3h"])
+
+        guard expiryReminderEnabled,
+              let expiry = appExpiryDate,
+              expiry > Date() else {
+            return
+        }
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        let expiryString = formatter.string(from: expiry)
+
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+            guard granted else { return }
+
+            let remaining = expiry.timeIntervalSinceNow
+            guard remaining > 0 else { return }
+
+            let content = UNMutableNotificationContent()
+            content.title = "spanani Store expires soon"
+            content.body = "Connect your iPhone to your PC and run the spanani Installer to renew it. The app stops opening on \(expiryString)."
+            content.sound = .default
+
+            let oneDaySeconds: TimeInterval = 24 * 3600
+            let oneDayInterval: TimeInterval
+            if remaining > oneDaySeconds {
+                oneDayInterval = remaining - oneDaySeconds
+            } else {
+                oneDayInterval = 60
+            }
+            let trigger1d = UNTimeIntervalNotificationTrigger(timeInterval: oneDayInterval, repeats: false)
+            let request1d = UNNotificationRequest(identifier: "spanani.expiry.1d", content: content, trigger: trigger1d)
+            UNUserNotificationCenter.current().add(request1d)
+
+            let threeHoursSeconds: TimeInterval = 3 * 3600
+            if remaining > threeHoursSeconds {
+                let threeHoursInterval = remaining - threeHoursSeconds
+                let trigger3h = UNTimeIntervalNotificationTrigger(timeInterval: threeHoursInterval, repeats: false)
+                let request3h = UNNotificationRequest(identifier: "spanani.expiry.3h", content: content, trigger: trigger3h)
+                UNUserNotificationCenter.current().add(request3h)
+            }
+        }
     }
 }

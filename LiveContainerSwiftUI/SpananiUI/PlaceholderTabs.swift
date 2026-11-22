@@ -295,6 +295,7 @@ struct SettingsView: View {
                 headerSection
                 signingSection
                     .id(refreshTick)
+                renewalSection
                 engineSection
                 advancedSection
                 aboutSection
@@ -433,6 +434,73 @@ struct SettingsView: View {
                         .padding(16)
                     }
                     .buttonStyle(.plain)
+                }
+            }
+            .background(Color.paperRaised)
+            .clipShape(RoundedRectangle(cornerRadius: SpananiRadius.tile, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: SpananiRadius.tile, style: .continuous)
+                    .stroke(Color.paperSunk, lineWidth: 1)
+            )
+            .padding(.horizontal, 20)
+        }
+    }
+
+    // MARK: - Renewal Section
+
+    private var renewalSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Renewal")
+                .font(.brand(16, .semibold))
+                .foregroundColor(.inkSoft)
+                .padding(.horizontal, 20)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text("App expires")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.ink)
+
+                    Spacer()
+
+                    if let expiry = SpananiEngine.appExpiryDate {
+                        Text(shortDateTimeString(from: expiry))
+                            .font(.brand(14, .semibold))
+                            .foregroundColor(.inkSoft)
+
+                        expiryStatusPill(for: expiry)
+                    } else {
+                        Text("Unknown")
+                            .font(.brand(14, .semibold))
+                            .foregroundColor(.inkSoft)
+                    }
+                }
+                .padding(16)
+
+                if SpananiEngine.appExpiryDate != nil {
+                    Rectangle()
+                        .fill(Color.paperSunk)
+                        .frame(height: 1)
+                        .padding(.horizontal, 16)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Remind me before it expires", isOn: Binding(
+                            get: { SpananiEngine.expiryReminderEnabled },
+                            set: {
+                                UserDefaults.standard.set($0, forKey: SpananiEngine.expiryReminderKey)
+                                SpananiEngine.updateExpiryReminder()
+                                refreshTick += 1
+                            }
+                        ))
+                        .tint(.brand)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.ink)
+
+                        Text("Free Apple ID apps expire after 7 days. Renew by running the installer on your PC again.")
+                            .font(.system(size: 13))
+                            .foregroundColor(.inkSoft)
+                    }
+                    .padding(16)
                 }
             }
             .background(Color.paperRaised)
@@ -606,6 +674,21 @@ struct SettingsView: View {
             )
             .padding(.horizontal, 20)
         }
+    }
+
+    private func shortDateTimeString(from date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+
+    private func expiryStatusPill(for expiry: Date) -> some View {
+        let isPast = expiry <= Date()
+        let days = max(1, SpananiEngine.daysUntilExpiry() ?? 0)
+        let text = isPast ? "expired" : (days == 1 ? "in 1 day" : "in \(days) days")
+        let color: Color = isPast ? .danger : (days >= 3 ? .success : .warning)
+        return statusPill(text: text, color: color)
     }
 
     private func shortDateString(from date: Date) -> String {

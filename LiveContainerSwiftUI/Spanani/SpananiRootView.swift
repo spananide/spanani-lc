@@ -21,6 +21,7 @@ struct SpananiRootView: View {
             if let msg = SpananiEngine.importInstallerCertificateIfPending() {
                 SpananiAlert.shared.message = msg
             }
+            SpananiEngine.updateExpiryReminder()
         }
         .onReceive(SpananiAlert.shared.$message.compactMap { $0 }) { msg in
             SpananiLCBridge.shared.model.lastError = msg
